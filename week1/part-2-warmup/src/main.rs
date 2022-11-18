@@ -6,16 +6,27 @@ fn main() {
     println!("Hi! Try running \"cargo test\" to run tests.");
 }
 
-fn add_n(v: Vec<i32>, n: i32) -> Vec<i32> {
-    unimplemented!()
+fn add_n(mut v: Vec<i32>, n: i32) -> Vec<i32> {
+    v.iter_mut().for_each(|i| {
+        *i += n;
+    });
+    v
 }
 
 fn add_n_inplace(v: &mut Vec<i32>, n: i32) {
-    unimplemented!()
+    v.iter_mut().for_each(|i| *i += n);
 }
 
 fn dedup(v: &mut Vec<i32>) {
-    unimplemented!()
+    let mut map = HashSet::new();
+    v.retain(|i| {
+        if map.contains(i) {
+            false
+        } else {
+            map.insert(*i);
+            true
+        }
+    })
 }
 
 #[cfg(test)]

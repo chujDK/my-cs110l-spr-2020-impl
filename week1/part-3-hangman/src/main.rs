@@ -35,6 +35,56 @@ fn main() {
     let secret_word_chars: Vec<char> = secret_word.chars().collect();
     // Uncomment for debugging:
     // println!("random word: {}", secret_word);
+    let mut guessed: Vec<char> = vec![];
 
     // Your code here! :)
+    let mut guess_left = 5;
+    while guess_left > 0 {
+        let mut success = true;
+        println!(
+            "The word so far is {}",
+            secret_word_chars
+                .iter()
+                .map(|c| if guessed.contains(c) {
+                    *c
+                } else {
+                    success = false;
+                    '-'
+                })
+                .collect::<String>()
+        );
+
+        if success {
+            println!("Congratulations you guessed the secret word");
+            return;
+        }
+
+        println!(
+            "You have guessed the following letters: {}",
+            guessed.iter().collect::<String>()
+        );
+        println!("You have {} guesses left", guess_left);
+        print!("Please guess a letter: ");
+        io::stdout().flush().unwrap();
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_line(&mut buf)
+            .expect("failed to read input");
+        match buf.trim().chars().nth(0) {
+            Some(c) => {
+                if guessed.contains(&c) {
+                    println!("You have already guessed this character");
+                } else {
+                    guessed.push(c);
+                    if !secret_word_chars.contains(&c) {
+                        guess_left -= 1;
+                        println!("Sorry, that letter is not in the word");
+                    }
+                }
+            }
+            None => {
+                println!("please input a character!");
+            }
+        }
+    }
 }
