@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::collections::hash_map::DefaultHasher;
+use std::fmt::format;
 use std::hash::{Hash, Hasher};
 #[allow(unused_imports)] // TODO: delete this line for Milestone 4
 use std::{fmt, fs};
@@ -134,10 +135,22 @@ impl OpenFile {
     /// program and we don't need to do fine-grained error handling, so returning Option is a
     /// simple way to indicate that "hey, we weren't able to get the necessary information"
     /// without making a big deal of it.)
-    #[allow(unused)] // TODO: delete this line for Milestone 4
     pub fn from_fd(pid: usize, fd: usize) -> Option<OpenFile> {
-        // TODO: implement for Milestone 4
-        unimplemented!();
+        let fd_path = fs::read_link(&format!("/proc/{}/fd/{}", pid, fd))
+            .ok()?
+            .to_str()?
+            .to_owned();
+        let name = OpenFile::path_to_name(&fd_path);
+
+        let file_content = fs::read_to_string(&format!("/proc/{}/fdinfo/{}", pid, fd)).ok()?;
+        let cursor = OpenFile::parse_cursor(&file_content)?;
+        let access_mode = OpenFile::parse_access_mode(&file_content)?;
+
+        Some(OpenFile {
+            name,
+            cursor,
+            access_mode,
+        })
     }
 
     /// This function returns the OpenFile's name with ANSI escape codes included to colorize
