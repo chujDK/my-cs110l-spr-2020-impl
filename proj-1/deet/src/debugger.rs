@@ -1,5 +1,8 @@
+use std::ops::Deref;
+
 use crate::debugger_command::DebuggerCommand;
-use crate::inferior::Inferior;
+use crate::dwarf_data::{DwarfData, Error as DwarfError};
+use crate::inferior::{self, Inferior, Status};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
@@ -8,12 +11,23 @@ pub struct Debugger {
     history_path: String,
     readline: Editor<()>,
     inferior: Option<Inferior>,
+    debug_data: DwarfData,
 }
 
 impl Debugger {
     /// Initializes the debugger.
     pub fn new(target: &str) -> Debugger {
-        // TODO (milestone 3): initialize the DwarfData
+        let debug_data = match DwarfData::from_file(target) {
+            Ok(val) => val,
+            Err(DwarfError::ErrorOpeningFile) => {
+                println!("Could not open file {}", target);
+                std::process::exit(1);
+            }
+            Err(DwarfError::DwarfFormatError(err)) => {
+                println!("Could not debugging symbols from {}: {:?}", target, err);
+                std::process::exit(1);
+            }
+        };
 
         let history_path = format!("{}/.deet_history", std::env::var("HOME").unwrap());
         let mut readline = Editor::<()>::new();
@@ -25,7 +39,25 @@ impl Debugger {
             history_path,
             readline,
             inferior: None,
+            debug_data,
         }
+    }
+
+    fn output_wait_status(status: Status) {
+        match status {
+            Status::Exited(code) => {
+                println!("Child exited {:?}", code);
+            }
+            Status::Signaled(code) => {
+                println!("Child received signal {:?}", code);
+            }
+            Status::Stopped(sig, address) => {
+                println!(
+                    "\nChild stopped at {:#x}, received signal {:?}",
+                    address, sig
+                );
+            }
+        };
     }
 
     pub fn run(&mut self) {
@@ -38,10 +70,37 @@ impl Debugger {
                         // TODO (milestone 1): make the inferior run
                         // You may use self.inferior.as_mut().unwrap() to get a mutable reference
                         // to the Inferior object
+                        let inferior = self.inferior.as_mut().unwrap();
+                        match inferior.continues() {
+                            Err(e) => println!("failed to start {}, err: {}", self.target, e),
+                            Ok(status) => Self::output_wait_status(status),
+                        };
                     } else {
                         println!("Error starting subprocess");
                     }
                 }
+                DebuggerCommand::Continue => {
+                    let inferior = self.inferior.as_mut();
+                    match inferior {
+                        Some(inferior) => match inferior.continues() {
+                            Err(e) => println!("failed to continue {}, err: {}", self.target, e),
+                            Ok(status) => Self::output_wait_status(status),
+                        },
+                        None => {
+                            println!("No target running");
+                        }
+                    }
+                }
+                DebuggerCommand::BackTrace => match &self.inferior {
+                    Some(inferior) => {
+                        if let Err(e) = inferior.print_backtrace(&self.debug_data) {
+                            println!("failed to backtrace, error: {}", e);
+                        }
+                    }
+                    None => {
+                        println!("No target running")
+                    }
+                },
                 DebuggerCommand::Quit => {
                     return;
                 }
