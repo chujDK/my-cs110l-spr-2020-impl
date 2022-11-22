@@ -50,6 +50,10 @@ impl<T> LinkedList<T> {
         self.size -= 1;
         Some(node.value)
     }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter { next: &self.head }
+    }
 }
 
 impl<T: Display> fmt::Display for LinkedList<T> {
@@ -66,6 +70,49 @@ impl<T: Display> fmt::Display for LinkedList<T> {
             }
         }
         write!(f, "{}", result)
+    }
+}
+
+pub struct IntoIter<T>(NodeNext<T>);
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        let next = self.0.take();
+        match next {
+            None => None,
+            Some(next_node) => {
+                let value = next_node.value;
+                self.0 = next_node.next;
+                Some(value)
+            }
+        }
+    }
+}
+
+impl<T> IntoIterator for LinkedList<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(mut self) -> Self::IntoIter {
+        IntoIter(self.head.take())
+    }
+}
+
+pub struct Iter<'a, T> {
+    next: &'a NodeNext<T>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        match &self.next {
+            None => None,
+            Some(next) => {
+                self.next = &next.next;
+                Some(&next.value)
+            }
+        }
     }
 }
 

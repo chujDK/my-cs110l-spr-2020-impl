@@ -16,7 +16,9 @@ fn main() {
     println!("{}", list.to_string()); // ToString impl for anything impl Display
 
     // If you implement iterator trait:
-    //for val in &list {
-    //    println!("{}", val);
-    //}
+    for val in list.iter() {
+        println!("{}", val);
+    }
+
+    list.into_iter().for_each(|v| println!("{}", v));
 }
