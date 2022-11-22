@@ -1,14 +1,43 @@
 use crossbeam_channel;
 use std::{thread, time};
 
-fn parallel_map<T, U, F>(mut input_vec: Vec<T>, num_threads: usize, f: F) -> Vec<U>
+fn parallel_map<T, U, F>(input_vec: Vec<T>, num_threads: usize, f: F) -> Vec<U>
 where
     F: FnOnce(T) -> U + Send + Copy + 'static,
     T: Send + 'static,
     U: Send + 'static + Default,
 {
-    let mut output_vec: Vec<U> = Vec::with_capacity(input_vec.len());
-    // TODO: implement parallel map!
+    let mut output_vec = Vec::with_capacity(input_vec.len());
+    output_vec.resize_with(input_vec.len(), U::default);
+    let (input_sender, input_receiver) = crossbeam_channel::unbounded();
+    let (output_sender, output_receiver) = crossbeam_channel::unbounded();
+    let mut threads = vec![];
+    for _ in 0..num_threads {
+        let receiver = input_receiver.clone();
+        let sender = output_sender.clone();
+        threads.push(thread::spawn(move || {
+            while let Ok((index, input)) = receiver.recv() {
+                let output = f(input);
+                sender.send((index, output)).unwrap();
+            }
+        }))
+    }
+
+    input_vec
+        .into_iter()
+        .enumerate()
+        .for_each(|(index, input)| input_sender.send((index, input)).unwrap());
+    drop(input_sender);
+
+    while let Some(thread) = threads.pop() {
+        thread.join().expect("some thread panic!");
+    }
+    drop(output_sender);
+
+    while let Ok((index, output)) = output_receiver.recv() {
+        output_vec[index] = output;
+    }
+
     output_vec
 }
 
